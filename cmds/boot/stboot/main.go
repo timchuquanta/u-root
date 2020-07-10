@@ -107,22 +107,20 @@ func main() {
 		reboot("%v", err)
 	}
 
-	if vars.BootMode == NetworkStatic || vars.BootMode == NetworkDHCP {
-		//////////
-		// Network
-		//////////
-		if vars.BootMode == NetworkStatic {
-			err = configureStaticNetwork()
-			if err != nil {
-				reboot("Cannot set up IO: %v", err)
-			}
+	//////////
+	// Network
+	//////////
+	if vars.BootMode == NetworkStatic {
+		err = configureStaticNetwork()
+		if err != nil {
+			reboot("Cannot set up IO: %v", err)
 		}
+	}
 
-		if vars.BootMode == NetworkDHCP {
-			err = configureDHCPNetwork()
-			if err != nil {
-				reboot("Cannot set up IO: %v", err)
-			}
+	if vars.BootMode == NetworkDHCP {
+		err = configureDHCPNetwork()
+		if err != nil {
+			reboot("Cannot set up IO: %v", err)
 		}
 	}
 
