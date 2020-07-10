@@ -85,6 +85,9 @@ func main() {
 
 	info(banner)
 
+	/////////////////
+	// Hostvars
+	/////////////////
 	p := filepath.Join("etc/", hostvarsFile)
 	var err error
 	vars, err = loadHostvars(p)
@@ -108,40 +111,32 @@ func main() {
 		//////////
 		// Network
 		//////////
-		nc, err := getNetConf()
-		if err != nil {
-			debug("Cannot read network configuration file: %v", err)
-			err = configureDHCPNetwork()
+		if vars.BootMode == NetworkStatic {
+			err = configureStaticNetwork()
 			if err != nil {
 				reboot("Cannot set up IO: %v", err)
 			}
 		}
 
-		if nc.HostIP != "" && nc.DefaultGateway != "" {
-			if *doDebug {
-				str, _ := json.MarshalIndent(nc, "", "  ")
-				info("Network configuration: %s", str)
-			}
-			err = configureStaticNetwork(nc)
-		} else {
-			debug("no configuration specified in %s", networkFile)
+		if vars.BootMode == NetworkDHCP {
 			err = configureDHCPNetwork()
+			if err != nil {
+				reboot("Cannot set up IO: %v", err)
+			}
 		}
-		if err != nil {
-			reboot("Cannot set up IO: %v", err)
-		}
+	}
 
-		////////////////////
-		// Time validatition
-		////////////////////
-		if vars.Timestamp == 0 && *doDebug {
-			info("WARNING: No timestamp found in hostvars")
-		}
-		buildTime := time.Unix(int64(vars.Timestamp), 0)
-		err = validateSystemTime(buildTime)
-		if err != nil {
-			reboot("%v", err)
-		}
+	////////////////////
+	// Time validatition
+	////////////////////
+	if vars.Timestamp == 0 {
+		reboot("No timestamp found in hostvars")
+	}
+	buildTime := time.Unix(int64(vars.Timestamp), 0)
+	useNetwork := vars.BootMode == NetworkStatic || vars.BootMode == NetworkDHCP
+	err = validateSystemTime(buildTime, useNetwork)
+	if err != nil {
+		reboot("%v", err)
 	}
 
 	////////////////

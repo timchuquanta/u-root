@@ -42,7 +42,7 @@ func pollNTP() (time.Time, error) {
 
 // validateSystemTime sets RTC and OS time according to
 // realtime clock, timestamp and ntp
-func validateSystemTime(builtTime time.Time) error {
+func validateSystemTime(builtTime time.Time, useNetwork bool) error {
 	rtc, err := rtc.OpenRTC()
 	if err != nil {
 		return fmt.Errorf("opening RTC failed: %v", err)
@@ -55,20 +55,28 @@ func validateSystemTime(builtTime time.Time) error {
 	info("Systemtime: %v", rtcTime.UTC())
 	if rtcTime.UTC().Before(builtTime.UTC()) {
 		info("Systemtime is invalid: %v", rtcTime.UTC())
-		info("Receive time via NTP")
-		ntpTime, err := pollNTP()
-		if err != nil {
-			return err
+		var newTime time.Time
+		if useNetwork {
+			info("Receive time via NTP")
+			newTime, err = pollNTP()
+			if err != nil {
+				return err
+			}
+			if newTime.UTC().Before(builtTime.UTC()) {
+				return errors.New("NTP spoof may happened")
+			}
+		} else {
+			info("Configured not to use network to update time")
+			info("Set system time to timestamp of hostvars.json")
+			info("WARNING: System time will not be up to date!")
+			newTime = builtTime
 		}
-		if ntpTime.UTC().Before(builtTime.UTC()) {
-			return errors.New("NTP spoof may happened")
-		}
-		info("Update RTC to %v", ntpTime.UTC())
-		err = rtc.Set(ntpTime)
+		info("Update RTC to %v", newTime.UTC())
+		err = rtc.Set(newTime)
 		if err != nil {
 			return fmt.Errorf("writing RTC failed: %v", err)
 		}
-		reboot("Set system time. Need reboot.")
+		reboot("Set system time. Need to reboot.")
 	}
 	return nil
 }
